@@ -1,29 +1,106 @@
 #!/usr/bin/env bash
-#cài đặt các package: ntp, epel, unzip, wget, ffmpeg, rclone
-sudo yum install -y ntpdate
-sudo ln -f -s /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime
-sudo ntpdate vn.pool.ntp.org
-sudo yum -y install epel-release
-sudo yum -y install unzip
-sudo yum -y install wget
-sudo rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-5.el7.nux.noarch.rpm
-sudo yum install ffmpeg ffmpeg-devel -y
-curl https://rclone.org/install.sh | sudo bash
-#tạo thư mục và chmod, ở đây tạo thư mục record để lưu file setup và tạo thư mục camera để lưu file video
-sudo mkdir /etc/record
-sudo mkdir /etc/record/camera
-sudo chmod -R 777 /etc/record
-sudo chmod -R 777 /etc/record/camera
-#Tải file cấu hình
-sudo wget --no-check-certificate -P /etc/record/ "https://raw.githubusercontent.com/duchoa23/record_RTSP_camera/main/record/rclone.sh"
-sudo wget --no-check-certificate -P /etc/record/ "https://raw.githubusercontent.com/duchoa23/record_RTSP_camera/main/record/record.sh"
-sudo chmod -R 777 /etc/record/record.sh
-sudo chmod -R 777 /etc/record/rclone.sh
-#Tạo crontab
-cron_job="0 * * * * /etc/record/record.sh"
-cron_job2="0 0 * * * /etc/record/rclone.sh"
-echo "$cron_job" >> /tmp/new_cron_job
-echo "$cron_job2" >> /tmp/new_cron_job
-# Add the new cron job to the crontab
-crontab /tmp/new_cron_job
-rm /tmp/new_cron_job
+set -euo pipefail
+
+# =============================================================================
+# Setup script for RTSP Camera Recorder
+# Target OS: Debian 12 (Bookworm) / Armbian Bookworm ARM64
+# =============================================================================
+
+INSTALL_DIR="/opt/record"
+DATA_DIR="$INSTALL_DIR/camera"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "=== RTSP Camera Recorder - Setup ==="
+echo "Target: Debian 12 / Armbian Bookworm"
+echo "Install dir: $INSTALL_DIR"
+echo ""
+
+# Check root/sudo
+if [[ $EUID -ne 0 ]]; then
+    echo "ERROR: This script must be run with sudo or as root." >&2
+    exit 1
+fi
+
+# --- Install packages ---
+echo "[1/6] Installing packages..."
+apt-get update -qq
+apt-get install -y --no-install-recommends \
+    ffmpeg \
+    rclone \
+    cron \
+    ca-certificates
+
+# --- Configure timezone ---
+echo "[2/6] Configuring timezone..."
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    TZ=$(grep -E '^TZ=' "$SCRIPT_DIR/.env" | cut -d= -f2 | tr -d '"' || echo "Asia/Ho_Chi_Minh")
+else
+    TZ="Asia/Ho_Chi_Minh"
+fi
+if command -v timedatectl &>/dev/null; then
+    timedatectl set-timezone "$TZ"
+else
+    ln -f -s "/usr/share/zoneinfo/$TZ" /etc/localtime
+    echo "$TZ" > /etc/timezone
+fi
+echo "  Timezone: $TZ"
+
+# --- Ensure NTP sync ---
+echo "[3/6] Enabling time synchronization..."
+if command -v timedatectl &>/dev/null; then
+    timedatectl set-ntp true 2>/dev/null || true
+fi
+
+# --- Create directory structure ---
+echo "[4/6] Creating directory structure..."
+mkdir -p "$INSTALL_DIR"
+mkdir -p "$DATA_DIR"
+
+# --- Copy scripts ---
+echo "[5/6] Installing scripts..."
+cp "$SCRIPT_DIR/record/record.sh" "$INSTALL_DIR/record.sh"
+cp "$SCRIPT_DIR/record/rclone.sh" "$INSTALL_DIR/rclone.sh"
+chmod 755 "$INSTALL_DIR/record.sh"
+chmod 755 "$INSTALL_DIR/rclone.sh"
+
+# Copy .env if it exists and not already installed
+if [[ -f "$SCRIPT_DIR/.env" && ! -f "$INSTALL_DIR/.env" ]]; then
+    cp "$SCRIPT_DIR/.env" "$INSTALL_DIR/.env"
+    chmod 600 "$INSTALL_DIR/.env"
+    echo "  .env copied to $INSTALL_DIR/.env"
+elif [[ ! -f "$INSTALL_DIR/.env" ]]; then
+    echo "  WARNING: No .env file found. Copy .env.example to .env and configure it:"
+    echo "  cp $SCRIPT_DIR/.env.example $INSTALL_DIR/.env"
+fi
+
+# --- Setup cron jobs ---
+echo "[6/6] Setting up cron jobs..."
+CRON_FILE="/etc/cron.d/record-camera"
+cat > "$CRON_FILE" <<EOF
+# RTSP Camera Recorder - Cron Jobs
+SHELL=/bin/bash
+ENV_FILE=$INSTALL_DIR/.env
+
+# Record every hour at :00
+0 * * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh >> /var/log/record-camera.log 2>&1
+
+# Sync to cloud every 2 hours at :05 (5 min offset to avoid overlap with recording start)
+5 */2 * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh >> /var/log/record-camera-sync.log 2>&1
+EOF
+chmod 644 "$CRON_FILE"
+
+# Ensure cron is running
+systemctl enable cron 2>/dev/null || true
+systemctl start cron 2>/dev/null || true
+
+echo ""
+echo "=== Setup complete ==="
+echo ""
+echo "Next steps:"
+echo "  1. Configure your .env:  sudo nano $INSTALL_DIR/.env"
+echo "  2. Setup rclone remote:  rclone config"
+echo "     (Create a remote named 'cam' or update RCLONE_REMOTE in .env)"
+echo "  3. Test recording:       ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh"
+echo "  4. Test sync:            ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh"
+echo "  5. Check logs:           tail -f /var/log/record-camera.log"
+echo ""

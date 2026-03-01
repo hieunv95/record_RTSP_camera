@@ -1,0 +1,25 @@
+services:
+  recorder:
+    build: .
+    container_name: rtsp-recorder
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - ENV_FILE=/config/.env
+      - RCLONE_CONF=/config/rclone.conf
+    volumes:
+      # Recordings storage on host
+      - ./data:/data
+      # Configuration files (read-only where possible)
+      - ./.env:/config/.env:ro
+      - ./rclone.conf:/config/rclone.conf:ro
+    # Memory limit for ARM devices with 2GB RAM
+    mem_limit: 512m
+    memswap_limit: 768m
+    # Logging (prevent log files from filling disk)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
