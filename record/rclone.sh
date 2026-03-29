@@ -60,8 +60,6 @@ check_disk_usage() {
 sync_recordings() {
     local sync_errors=0
     local synced_dirs=()
-    local today
-    today="$(date +%d-%m-%Y)"
 
     while IFS= read -r dir; do
         [[ -d "$dir" ]] || continue
@@ -72,12 +70,6 @@ sync_recordings() {
         # Skip if directory is empty
         if [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
             log "Skipping empty directory: $rel_path"
-            continue
-        fi
-
-        # Skip today's directory (still being recorded)
-        if [[ "$dirname" == "$today" ]]; then
-            log "Skipping today's directory: $rel_path"
             continue
         fi
 

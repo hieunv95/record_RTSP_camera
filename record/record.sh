@@ -12,7 +12,7 @@ fi
 
 # Configuration with defaults
 RECORD_DIR="${RECORD_DIR:-/data/camera}"
-RECORD_DURATION="${RECORD_DURATION:-3580}"
+RECORD_DURATION="${RECORD_DURATION:-300}"
 CAMERAS="${CAMERAS:-}"
 
 # Date variables
@@ -41,7 +41,6 @@ sanitize_camera_name() {
 
 declare -a CAMERA_NAMES=()
 declare -a CAMERA_URLS=()
-LEGACY_LAYOUT=false
 
 if [[ -n "$CAMERAS" ]]; then
     IFS=';' read -r -a camera_entries <<< "$CAMERAS"
@@ -68,12 +67,8 @@ if [[ -n "$CAMERAS" ]]; then
         echo "ERROR: CAMERAS is set but no valid camera entries were found." >&2
         exit 1
     fi
-elif [[ -n "${RTSP_URL:-}" ]]; then
-    CAMERA_NAMES+=("camera")
-    CAMERA_URLS+=("$RTSP_URL")
-    LEGACY_LAYOUT=true
 else
-    echo "ERROR: RTSP_URL or CAMERAS must be set. Check your .env file." >&2
+    echo "ERROR: CAMERAS must be set. Format: name=rtsp://...;name2=rtsp://..." >&2
     exit 1
 fi
 
@@ -109,12 +104,8 @@ for i in "${!CAMERA_NAMES[@]}"; do
     camera_name="${CAMERA_NAMES[$i]}"
     camera_url="${CAMERA_URLS[$i]}"
 
-    if [[ "$LEGACY_LAYOUT" == "true" ]]; then
-        output_dir="$RECORD_DIR/$TODAY"
-    else
-        output_dir="$RECORD_DIR/$camera_name/$TODAY"
-    fi
-    output_file="$output_dir/$TIMESTAMP.mp4"
+    output_dir="$RECORD_DIR/$camera_name/$TODAY"
+    output_file="$output_dir/$TIMESTAMP.mkv"
 
     (
         record_single_camera "$camera_name" "$camera_url" "$output_dir" "$output_file"

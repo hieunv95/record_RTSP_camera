@@ -5,9 +5,9 @@ Optimized for **Armbian Bookworm / Debian 12** on ARM64 boards with limited reso
 
 ## Features
 
-- Hourly RTSP recording with ffmpeg (copy mode, no re-encoding)
+- RTSP recording every 5 minutes with ffmpeg (copy mode, no re-encoding)
 - Single-camera and multi-camera support
-- Automatic cloud sync every 2 hours via rclone
+- Automatic cloud sync immediately after each recording via rclone
 - Disk space monitoring with auto-cleanup
 - Docker support with memory limits for low-power ARM devices
 - Sensitive credentials stored in `.env` (not in scripts)
@@ -31,7 +31,7 @@ cd record_RTSP_camera
 
 # Create your config
 cp .env.example .env
-nano .env  # Set RTSP_URL and other settings
+nano .env  # Set CAMERAS and other settings
 ```
 
 ### 2. Setup rclone
@@ -82,7 +82,7 @@ git clone https://github.com/duchoa23/record_RTSP_camera.git
 cd record_RTSP_camera
 
 cp .env.example .env
-nano .env  # Set RTSP_URL and other settings
+nano .env  # Set CAMERAS and other settings
 ```
 
 ### 2. Setup rclone
@@ -100,7 +100,7 @@ sudo bash setup.sh
 This will:
 - Install ffmpeg, rclone via apt
 - Copy scripts to `/opt/record/`
-- Setup cron jobs (record hourly, sync every 2h)
+- Setup cron jobs (record every 5 minutes, sync immediately after each recording)
 
 ### 4. Monitor
 
@@ -122,31 +122,28 @@ du -sh /opt/record/camera/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RTSP_URL` | *(optional)* | Single-camera RTSP URL: `rtsp://user:pass@host:port/path` |
-| `CAMERAS` | *(optional)* | Multi-camera list: `front=rtsp://...;back=rtsp://...` (takes precedence over `RTSP_URL`) |
+| `CAMERAS` | *(required)* | Camera list: `front=rtsp://...;back=rtsp://...` |
 | `RECORD_DIR` | `/data/camera` | Recording storage directory |
-| `RECORD_DURATION` | `3580` | Seconds per recording segment (~1h) |
+| `RECORD_DURATION` | `300` | Seconds per recording segment (5 minutes) |
 | `RCLONE_REMOTE` | `cam` | Rclone remote name |
 | `RCLONE_PATH` | `camera` | Cloud folder path |
-| `SYNC_INTERVAL_HOURS` | `2` | Hours between sync runs |
 | `DELETE_AFTER_SYNC` | `true` | Delete local files after successful sync |
 | `DISK_USAGE_THRESHOLD` | `80` | Force cleanup at N% disk usage (0=disable) |
 | `TZ` | `Asia/Ho_Chi_Minh` | Timezone |
 
-Set either `RTSP_URL` (single camera) or `CAMERAS` (multiple cameras).
+Use `CAMERAS` for one or more cameras.
 
 `CAMERAS` now supports raw/unquoted RTSP query strings (including `&` and `;`) with the built-in dotenv parser, but quoting the full value is still recommended for readability.
 
 ### Multi-camera folder layout
 
-- Single-camera (`RTSP_URL`): `RECORD_DIR/DD-MM-YYYY/*.mp4` (legacy layout)
-- Multi-camera (`CAMERAS`): `RECORD_DIR/<camera-name>/DD-MM-YYYY/*.mp4`
+- Canonical layout: `RECORD_DIR/<camera-name>/DD-MM-YYYY/*.mkv`
 
 Cloud sync preserves the same relative structure under `RCLONE_PATH`.
 
 ### Migrate legacy single-camera folders
 
-If you switch from `RTSP_URL` to `CAMERAS`, migrate old folders once:
+If old folders still exist as `RECORD_DIR/DD-MM-YYYY/*`, migrate them once:
 
 ```bash
 # Dry run (recommended first)
@@ -156,7 +153,7 @@ DRY_RUN=true ./record/migrate_legacy_layout.sh front
 ./record/migrate_legacy_layout.sh front
 ```
 
-- Argument is target camera name (default: `camera`)
+- Argument is required target camera name
 - Script moves `RECORD_DIR/DD-MM-YYYY/*` to `RECORD_DIR/<camera>/DD-MM-YYYY/*`
 - Existing files in destination are never overwritten
 
@@ -170,7 +167,7 @@ DRY_RUN=true ./record/migrate_legacy_layout.sh front
 | 4 Mbps | ~1.8 GB | ~43 GB | ~5 hours |
 | 8 Mbps | ~3.6 GB | ~86 GB | ~2 hours |
 
-With `SYNC_INTERVAL_HOURS=2`, only ~2 hours of footage stays on disk at a time.
+With immediate sync after each recording, local storage is reduced as soon as uploads succeed.
 
 ---
 
@@ -178,7 +175,7 @@ With `SYNC_INTERVAL_HOURS=2`, only ~2 hours of footage stays on disk at a time.
 
 ```bash
 # Test RTSP stream manually
-ffmpeg -i "rtsp://user:pass@host:port/path" -t 10 -y test.mp4
+ffmpeg -i "rtsp://user:pass@host:port/path" -t 10 -y test.mkv
 
 # Test rclone sync
 rclone ls cam:camera/

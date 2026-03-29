@@ -10,7 +10,7 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 RECORD_DIR="${RECORD_DIR:-/data/camera}"
-TARGET_CAMERA_NAME="${1:-${LEGACY_CAMERA_NAME:-camera}}"
+TARGET_CAMERA_NAME="${1:-}"
 DRY_RUN="${DRY_RUN:-false}"
 
 log() {
@@ -34,6 +34,11 @@ sanitize_camera_name() {
 }
 
 TARGET_CAMERA_NAME="$(sanitize_camera_name "$TARGET_CAMERA_NAME")"
+
+if [[ -z "$TARGET_CAMERA_NAME" ]]; then
+    log "ERROR: Missing target camera name. Usage: $0 <camera-name>" >&2
+    exit 1
+fi
 
 if [[ ! -d "$RECORD_DIR" ]]; then
     log "ERROR: RECORD_DIR does not exist: $RECORD_DIR" >&2

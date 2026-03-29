@@ -85,11 +85,8 @@ cat > "$CRON_FILE" <<EOF
 SHELL=/bin/bash
 ENV_FILE=$INSTALL_DIR/.env
 
-# Record every hour at :00
-0 * * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh >> /var/log/record-camera.log 2>&1
-
-# Sync to cloud every 2 hours at :05 (5 min offset to avoid overlap with recording start)
-5 */2 * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh >> /var/log/record-camera-sync.log 2>&1
+# Record every 5 minutes and sync immediately after each recording
+*/5 * * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh >> /var/log/record-camera.log 2>&1 && ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh >> /var/log/record-camera-sync.log 2>&1
 EOF
 chmod 644 "$CRON_FILE"
 
@@ -106,6 +103,6 @@ echo "  2. Setup rclone remote:  rclone config"
 echo "     (Create a remote named 'cam' or update RCLONE_REMOTE in .env)"
 echo "  3. Test recording:       ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh"
 echo "  4. Test sync:            ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh"
-echo "  5. Migrate old layout:   ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/migrate_legacy_layout.sh"
+echo "  5. Migrate old layout:   ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/migrate_legacy_layout.sh <camera-name>"
 echo "  6. Check logs:           tail -f /var/log/record-camera.log"
 echo ""
