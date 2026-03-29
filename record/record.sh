@@ -13,6 +13,7 @@ fi
 # Configuration with defaults
 RECORD_DIR="${RECORD_DIR:-/data/camera}"
 RECORD_DURATION="${RECORD_DURATION:-310}"
+RECORD_TIMEOUT_GRACE="${RECORD_TIMEOUT_GRACE:-20}"
 CAMERAS="${CAMERAS:-}"
 
 # Date variables
@@ -79,13 +80,13 @@ record_single_camera() {
     local output_file="$4"
     local record_timeout
 
-    record_timeout=$((RECORD_DURATION + 5))
+    record_timeout=$((RECORD_DURATION + RECORD_TIMEOUT_GRACE))
 
     mkdir -p "$output_dir"
     log "Recording started [$camera_name]: $output_file"
 
     # Record RTSP stream
-    # -timeout: kill ffmpeg if it exceeds RECORD_DURATION + 5s grace
+    # -timeout: kill ffmpeg if it exceeds RECORD_DURATION + RECORD_TIMEOUT_GRACE
     # -nostdin/-hide_banner: reduce interactive/noisy behavior in cron
     # -rtsp_transport tcp: stable RTSP transport
     # -use_wallclock_as_timestamps 1: derive packet timestamps from wall clock when source misses PTS/DTS
@@ -139,8 +140,19 @@ for i in "${!PIDS[@]}"; do
         log "Recording completed [$camera_name]: $output_file (${file_size:-unknown})"
     else
         exit_code=$?
-        log "ERROR: ffmpeg exited with code $exit_code for camera [$camera_name]" >&2
-        overall_exit=1
+        if [[ "$exit_code" -eq 124 ]]; then
+            if [[ -s "$output_file" ]]; then
+                file_size=$(du -h "$output_file" 2>/dev/null | cut -f1)
+                log "Recording reached timeout for [$camera_name] but output exists: $output_file (${file_size:-unknown})"
+                log "Hint: increase RECORD_TIMEOUT_GRACE if this happens frequently (current=$RECORD_TIMEOUT_GRACE)"
+            else
+                log "ERROR: ffmpeg timed out (124) and produced no output for camera [$camera_name]" >&2
+                overall_exit=1
+            fi
+        else
+            log "ERROR: ffmpeg exited with code $exit_code for camera [$camera_name]" >&2
+            overall_exit=1
+        fi
     fi
 done
 

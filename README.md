@@ -125,6 +125,7 @@ du -sh /opt/record/camera/
 | `CAMERAS` | *(required)* | Camera list: `front=rtsp://...;back=rtsp://...` |
 | `RECORD_DIR` | `/data/camera` | Recording storage directory |
 | `RECORD_DURATION` | `310` | Seconds per recording segment (5 minutes + 10s delay buffer) |
+| `RECORD_TIMEOUT_GRACE` | `20` | Extra seconds before timeout kills ffmpeg (reduce false `124` exits) |
 | `RCLONE_REMOTE` | `cam` | Rclone remote name |
 | `RCLONE_PATH` | `camera` | Cloud folder path |
 | `DELETE_AFTER_SYNC` | `true` | Enable local cleanup after successful sync |
