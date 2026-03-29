@@ -12,7 +12,7 @@ fi
 
 # Configuration with defaults
 RECORD_DIR="${RECORD_DIR:-/data/camera}"
-RECORD_DURATION="${RECORD_DURATION:-300}"
+RECORD_DURATION="${RECORD_DURATION:-310}"
 CAMERAS="${CAMERAS:-}"
 
 # Date variables
@@ -77,16 +77,24 @@ record_single_camera() {
     local camera_url="$2"
     local output_dir="$3"
     local output_file="$4"
+    local record_timeout
+
+    record_timeout=$((RECORD_DURATION + 5))
 
     mkdir -p "$output_dir"
     log "Recording started [$camera_name]: $output_file"
 
     # Record RTSP stream
+    # -timeout: kill ffmpeg if it exceeds RECORD_DURATION + 5s grace
+    # -nostdin/-hide_banner: reduce interactive/noisy behavior in cron
+    # -rtsp_transport tcp: stable RTSP transport
     # -vcodec copy: no video re-encoding (critical for low-power ARM)
     # -acodec copy: no audio re-encoding
     # -t: duration in seconds
     # -loglevel warning: reduce log noise
-    ffmpeg \
+    timeout "$record_timeout" ffmpeg \
+        -nostdin \
+        -hide_banner \
         -rtsp_transport tcp \
         -i "$camera_url" \
         -vcodec copy \
