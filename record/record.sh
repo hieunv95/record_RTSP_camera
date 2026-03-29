@@ -89,21 +89,33 @@ record_single_camera() {
     # -timeout: kill ffmpeg if it exceeds RECORD_DURATION + RECORD_TIMEOUT_GRACE
     # -nostdin/-hide_banner: reduce interactive/noisy behavior in cron
     # -rtsp_transport tcp: stable RTSP transport
+    # -rtsp_flags prefer_tcp: ask RTSP layer to prefer TCP interleaving
     # -use_wallclock_as_timestamps 1: derive packet timestamps from wall clock when source misses PTS/DTS
-    # -fflags +genpts: generate missing PTS to keep muxers (matroska) happy in copy mode
+    # -fflags +genpts+igndts+discardcorrupt: generate/normalize timestamps and skip corrupt packets
+    # -map/-dn/-sn: keep only video/audio streams (drop data/subtitle streams often carrying bad timestamps)
     # -vcodec copy: no video re-encoding (critical for low-power ARM)
     # -acodec copy: no audio re-encoding
+    # -copytb 1: copy input timebase when stream-copying
+    # -muxdelay/-muxpreload 0: reduce muxer buffering for cleaner segment boundaries
     # -t: duration in seconds
     # -loglevel warning: reduce log noise
     timeout "$record_timeout" ffmpeg \
         -nostdin \
         -hide_banner \
         -rtsp_transport tcp \
+        -rtsp_flags prefer_tcp \
         -use_wallclock_as_timestamps 1 \
-        -fflags +genpts \
+        -fflags +genpts+igndts+discardcorrupt \
         -i "$camera_url" \
+        -map 0:v:0 \
+        -map 0:a? \
+        -dn \
+        -sn \
         -vcodec copy \
         -acodec copy \
+        -copytb 1 \
+        -muxdelay 0 \
+        -muxpreload 0 \
         -t "$RECORD_DURATION" \
         -loglevel warning \
         -y "$output_file"
