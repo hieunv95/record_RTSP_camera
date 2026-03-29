@@ -16,8 +16,8 @@ RECORD_DURATION="${RECORD_DURATION:-310}"
 CAMERAS="${CAMERAS:-}"
 
 # Date variables
-TODAY=$(date +%d-%m-%Y)
-TIMESTAMP=$(date +%d-%m-%Y--%H-%M)
+TODAY=$(date +%y%m%d)
+TIMESTAMP=$(date +%y%m%d-%H%M%S)
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"

@@ -5,7 +5,7 @@ Records RTSP camera streams every 5 minutes via ffmpeg, syncs to cloud (Google D
 
 ## Architecture
 ```
-Cron */5 → record/record.sh (ffmpeg copy-mode → <camera>/DD-MM-YYYY/DD-MM-YYYY--HH-MM.mkv)
+Cron */5 → record/record.sh (ffmpeg copy-mode → <camera>/YYMMDD/YYMMDD-HHMMSS.mkv)
 Immediately after each record run → record/rclone.sh (sync date dirs → cloud, delete on success, disk cleanup)
 ```
 - **Docker**: `entrypoint.sh` generates crontab from env vars → runs `supercronic` as PID 1
@@ -28,7 +28,7 @@ Key vars: `CAMERAS` (required), `RECORD_DIR`, `RECORD_DURATION`, `RCLONE_REMOTE`
 
 ## Script Conventions
 - All scripts: `set -euo pipefail`, structured `[timestamp] message` logging
-- `record.sh`: Fails fast if `CAMERAS` unset and writes to canonical `<camera>/DD-MM-YYYY` layout
+- `record.sh`: Fails fast if `CAMERAS` unset and writes to canonical `<camera>/YYMMDD` layout
 - `rclone.sh`: Iterates date dirs and deletes only after confirmed sync success (`$? -eq 0`)
 - rclone.sh `RCLONE_CONF` flag: auto-appends `--config $RCLONE_CONF` if file exists (Docker mounts to `/config/rclone.conf`)
 

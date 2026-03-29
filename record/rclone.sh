@@ -42,8 +42,8 @@ check_disk_usage() {
     if [[ -n "$usage" && "$usage" -ge "$DISK_USAGE_THRESHOLD" ]]; then
         log "WARNING: Disk usage at ${usage}% (threshold: ${DISK_USAGE_THRESHOLD}%). Forcing cleanup of oldest date directories..."
         oldest_date_dir=$(find "$RECORD_DIR" -mindepth 1 -maxdepth 2 -type d \
-            -regextype posix-extended -regex '.*/[0-9]{2}-[0-9]{2}-[0-9]{4}' \
-            -not -name "$(date +%d-%m-%Y)" \
+            -regextype posix-extended -regex '.*/[0-9]{6}' \
+            -not -name "$(date +%y%m%d)" \
             -printf '%T@ %p\n' | sort -n | head -1 | cut -d' ' -f2-)
 
         if [[ -n "$oldest_date_dir" && -d "$oldest_date_dir" ]]; then
@@ -63,8 +63,7 @@ sync_recordings() {
 
     while IFS= read -r dir; do
         [[ -d "$dir" ]] || continue
-        local dirname rel_path
-        dirname=$(basename "$dir")
+        local rel_path
         rel_path="${dir#$RECORD_DIR/}"
 
         # Skip if directory is empty
@@ -83,7 +82,7 @@ sync_recordings() {
         fi
     done < <(
         find "$RECORD_DIR" -mindepth 1 -maxdepth 2 -type d \
-            -regextype posix-extended -regex '.*/[0-9]{2}-[0-9]{2}-[0-9]{4}' | sort
+            -regextype posix-extended -regex '.*/[0-9]{6}' | sort
     )
 
     # Delete successfully synced directories

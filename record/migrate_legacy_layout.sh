@@ -91,7 +91,17 @@ migrated_dirs=0
 skipped_items=0
 
 for src_dir in "${LEGACY_DIRS[@]}"; do
-    date_name="$(basename "$src_dir")"
+    legacy_date_name="$(basename "$src_dir")"
+    if [[ "$legacy_date_name" =~ ^([0-9]{2})-([0-9]{2})-([0-9]{4})$ ]]; then
+        day="${BASH_REMATCH[1]}"
+        month="${BASH_REMATCH[2]}"
+        year="${BASH_REMATCH[3]}"
+        date_name="${year:2:2}${month}${day}"
+    else
+        log "WARNING: Skip invalid legacy date directory name: $legacy_date_name"
+        continue
+    fi
+
     dst_dir="$RECORD_DIR/$TARGET_CAMERA_NAME/$date_name"
 
     if [[ "$DRY_RUN" == "false" ]]; then
@@ -126,7 +136,7 @@ for src_dir in "${LEGACY_DIRS[@]}"; do
 
     if rmdir "$src_dir" 2>/dev/null; then
         ((migrated_dirs+=1))
-        log "Migrated directory: $date_name -> $TARGET_CAMERA_NAME/$date_name"
+        log "Migrated directory: $legacy_date_name -> $TARGET_CAMERA_NAME/$date_name"
     else
         log "WARNING: Source directory not empty after move (some files may have been skipped): $src_dir"
     fi

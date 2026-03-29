@@ -137,13 +137,13 @@ Use `CAMERAS` for one or more cameras.
 
 ### Multi-camera folder layout
 
-- Canonical layout: `RECORD_DIR/<camera-name>/DD-MM-YYYY/*.mkv`
+- Canonical layout: `RECORD_DIR/<camera-name>/YYMMDD/YYMMDD-HHMMSS.mkv`
 
 Cloud sync preserves the same relative structure under `RCLONE_PATH`.
 
 ### Migrate legacy single-camera folders
 
-If old folders still exist as `RECORD_DIR/DD-MM-YYYY/*`, migrate them once:
+If old folders still exist as `RECORD_DIR/DD-MM-YYYY/*`, migrate them once to the new date format layout:
 
 ```bash
 # Dry run (recommended first)
@@ -154,7 +154,7 @@ DRY_RUN=true ./record/migrate_legacy_layout.sh front
 ```
 
 - Argument is required target camera name
-- Script moves `RECORD_DIR/DD-MM-YYYY/*` to `RECORD_DIR/<camera>/DD-MM-YYYY/*`
+- Script moves `RECORD_DIR/DD-MM-YYYY/*` to `RECORD_DIR/<camera>/YYMMDD/*`
 - Existing files in destination are never overwritten
 
 ---
