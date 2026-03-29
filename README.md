@@ -127,7 +127,8 @@ du -sh /opt/record/camera/
 | `RECORD_DURATION` | `310` | Seconds per recording segment (5 minutes + 10s delay buffer) |
 | `RCLONE_REMOTE` | `cam` | Rclone remote name |
 | `RCLONE_PATH` | `camera` | Cloud folder path |
-| `DELETE_AFTER_SYNC` | `true` | Delete local files after successful sync |
+| `DELETE_AFTER_SYNC` | `true` | Enable local cleanup after successful sync |
+| `DELETE_OLDER_THAN_MINUTES` | `60` | Delete only local files older than N minutes |
 | `DISK_USAGE_THRESHOLD` | `80` | Force cleanup at N% disk usage (0=disable) |
 | `TZ` | `Asia/Ho_Chi_Minh` | Timezone |
 

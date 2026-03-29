@@ -17,6 +17,7 @@ RCLONE_PATH="${RCLONE_PATH:-camera}"
 DELETE_AFTER_SYNC="${DELETE_AFTER_SYNC:-true}"
 DISK_USAGE_THRESHOLD="${DISK_USAGE_THRESHOLD:-80}"
 RCLONE_CONF="${RCLONE_CONF:-}"
+DELETE_OLDER_THAN_MINUTES="${DELETE_OLDER_THAN_MINUTES:-60}"
 
 # Build rclone command base (if custom config exists)
 RCLONE_BASE_CMD=(rclone)
@@ -37,21 +38,26 @@ check_disk_usage() {
         return
     fi
     local usage
-    local oldest_date_dir
+    local oldest_file
+    local deleted_count=0
     usage=$(df "$RECORD_DIR" 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%')
     if [[ -n "$usage" && "$usage" -ge "$DISK_USAGE_THRESHOLD" ]]; then
-        log "WARNING: Disk usage at ${usage}% (threshold: ${DISK_USAGE_THRESHOLD}%). Forcing cleanup of oldest date directories..."
-        oldest_date_dir=$(find "$RECORD_DIR" -mindepth 1 -maxdepth 2 -type d \
-            -regextype posix-extended -regex '.*/[0-9]{6}' \
-            -not -name "$(date +%y%m%d)" \
-            -printf '%T@ %p\n' | sort -n | head -1 | cut -d' ' -f2-)
+        log "WARNING: Disk usage at ${usage}% (threshold: ${DISK_USAGE_THRESHOLD}%). Cleaning oldest local files older than ${DELETE_OLDER_THAN_MINUTES} minutes..."
+        while [[ -n "$usage" && "$usage" -ge "$DISK_USAGE_THRESHOLD" ]]; do
+            oldest_file=$(find "$RECORD_DIR" -type f -mmin "+$DELETE_OLDER_THAN_MINUTES" -printf '%T@ %p\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-)
+            if [[ -z "$oldest_file" || ! -f "$oldest_file" ]]; then
+                log "No eligible old file found for disk cleanup."
+                break
+            fi
 
-        if [[ -n "$oldest_date_dir" && -d "$oldest_date_dir" ]]; then
-            log "Deleting oldest directory: ${oldest_date_dir#$RECORD_DIR/}"
-            rm -rf "$oldest_date_dir"
-            find "$RECORD_DIR" -mindepth 1 -maxdepth 1 -type d -empty -delete
-        else
-            log "No eligible date directory found for forced cleanup."
+            log "Deleting oldest file: ${oldest_file#$RECORD_DIR/}"
+            rm -f "$oldest_file"
+            ((deleted_count++))
+            usage=$(df "$RECORD_DIR" 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%')
+        done
+
+        if [[ "$deleted_count" -gt 0 ]]; then
+            log "Disk cleanup deleted ${deleted_count} file(s). Current usage: ${usage}%"
         fi
     fi
 }
@@ -73,7 +79,7 @@ sync_recordings() {
         fi
 
         log "Syncing: $rel_path -> ${RCLONE_REMOTE}:${RCLONE_PATH}/$rel_path"
-        if "${RCLONE_BASE_CMD[@]}" sync "$dir" "${RCLONE_REMOTE}:${RCLONE_PATH}/$rel_path" "${RCLONE_FLAGS[@]}"; then
+        if "${RCLONE_BASE_CMD[@]}" copy "$dir" "${RCLONE_REMOTE}:${RCLONE_PATH}/$rel_path" "${RCLONE_FLAGS[@]}"; then
             log "Sync completed: $rel_path"
             synced_dirs+=("$dir")
         else
@@ -85,14 +91,19 @@ sync_recordings() {
             -regextype posix-extended -regex '.*/[0-9]{6}' | sort
     )
 
-    # Delete successfully synced directories
+    # Delete local files older than configured retention in successfully synced directories
     if [[ "$DELETE_AFTER_SYNC" == "true" ]]; then
+        local deleted_count=0
         for dir in "${synced_dirs[@]:-}"; do
             [[ -n "$dir" && -d "$dir" ]] || continue
-            log "Deleting synced directory: ${dir#$RECORD_DIR/}"
-            rm -rf "$dir"
+            log "Cleaning local files older than ${DELETE_OLDER_THAN_MINUTES} minutes in: ${dir#$RECORD_DIR/}"
+            while IFS= read -r old_file; do
+                [[ -n "$old_file" ]] || continue
+                rm -f "$old_file"
+                ((deleted_count++))
+            done < <(find "$dir" -type f -mmin "+$DELETE_OLDER_THAN_MINUTES" 2>/dev/null)
         done
-        find "$RECORD_DIR" -mindepth 1 -maxdepth 1 -type d -empty -delete
+        log "Cleanup done. Deleted ${deleted_count} local file(s) older than ${DELETE_OLDER_THAN_MINUTES} minutes."
     fi
 
     return $sync_errors
