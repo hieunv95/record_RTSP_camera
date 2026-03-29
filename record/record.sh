@@ -11,40 +11,134 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 # Configuration with defaults
-RTSP_URL="${RTSP_URL:?ERROR: RTSP_URL is not set. Check your .env file.}"
 RECORD_DIR="${RECORD_DIR:-/data/camera}"
 RECORD_DURATION="${RECORD_DURATION:-3580}"
+CAMERAS="${CAMERAS:-}"
 
 # Date variables
 TODAY=$(date +%d-%m-%Y)
 TIMESTAMP=$(date +%d-%m-%Y--%H-%M)
-OUTPUT_DIR="$RECORD_DIR/$TODAY"
-OUTPUT_FILE="$OUTPUT_DIR/$TIMESTAMP.mp4"
 
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Recording started: $OUTPUT_FILE"
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+}
 
-# Record RTSP stream
-# -vcodec copy: no video re-encoding (critical for low-power ARM)
-# -acodec copy: no audio re-encoding
-# -t: duration in seconds
-# -loglevel warning: reduce log noise
-ffmpeg \
-    -rtsp_transport tcp \
-    -i "$RTSP_URL" \
-    -vcodec copy \
-    -acodec copy \
-    -t "$RECORD_DURATION" \
-    -loglevel warning \
-    -y "$OUTPUT_FILE"
+trim() {
+    local value="$1"
+    value="${value#${value%%[![:space:]]*}}"
+    value="${value%${value##*[![:space:]]}}"
+    printf '%s' "$value"
+}
 
-EXIT_CODE=$?
-if [[ $EXIT_CODE -eq 0 ]]; then
-    FILE_SIZE=$(du -h "$OUTPUT_FILE" 2>/dev/null | cut -f1)
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Recording completed: $OUTPUT_FILE ($FILE_SIZE)"
+sanitize_camera_name() {
+    local camera_name
+    camera_name=$(trim "$1")
+    camera_name="${camera_name// /_}"
+    camera_name="${camera_name//[^a-zA-Z0-9_-]/_}"
+    [[ -n "$camera_name" ]] || camera_name="camera"
+    printf '%s' "$camera_name"
+}
+
+declare -a CAMERA_NAMES=()
+declare -a CAMERA_URLS=()
+LEGACY_LAYOUT=false
+
+if [[ -n "$CAMERAS" ]]; then
+    IFS=';' read -r -a camera_entries <<< "$CAMERAS"
+    for entry in "${camera_entries[@]}"; do
+        entry=$(trim "$entry")
+        [[ -n "$entry" ]] || continue
+        if [[ "$entry" != *=* ]]; then
+            echo "ERROR: Invalid CAMERAS entry: '$entry'. Expected format: name=rtsp://..." >&2
+            exit 1
+        fi
+
+        name=$(sanitize_camera_name "${entry%%=*}")
+        url=$(trim "${entry#*=}")
+        if [[ -z "$url" ]]; then
+            echo "ERROR: Empty RTSP URL for camera '$name' in CAMERAS." >&2
+            exit 1
+        fi
+
+        CAMERA_NAMES+=("$name")
+        CAMERA_URLS+=("$url")
+    done
+
+    if [[ ${#CAMERA_NAMES[@]} -eq 0 ]]; then
+        echo "ERROR: CAMERAS is set but no valid camera entries were found." >&2
+        exit 1
+    fi
+elif [[ -n "${RTSP_URL:-}" ]]; then
+    CAMERA_NAMES+=("camera")
+    CAMERA_URLS+=("$RTSP_URL")
+    LEGACY_LAYOUT=true
 else
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: ffmpeg exited with code $EXIT_CODE" >&2
+    echo "ERROR: RTSP_URL or CAMERAS must be set. Check your .env file." >&2
+    exit 1
 fi
 
-exit $EXIT_CODE
+record_single_camera() {
+    local camera_name="$1"
+    local camera_url="$2"
+    local output_dir="$3"
+    local output_file="$4"
+
+    mkdir -p "$output_dir"
+    log "Recording started [$camera_name]: $output_file"
+
+    # Record RTSP stream
+    # -vcodec copy: no video re-encoding (critical for low-power ARM)
+    # -acodec copy: no audio re-encoding
+    # -t: duration in seconds
+    # -loglevel warning: reduce log noise
+    ffmpeg \
+        -rtsp_transport tcp \
+        -i "$camera_url" \
+        -vcodec copy \
+        -acodec copy \
+        -t "$RECORD_DURATION" \
+        -loglevel warning \
+        -y "$output_file"
+}
+
+declare -a PIDS=()
+declare -a PID_CAMERA_NAMES=()
+declare -a PID_OUTPUT_FILES=()
+
+for i in "${!CAMERA_NAMES[@]}"; do
+    camera_name="${CAMERA_NAMES[$i]}"
+    camera_url="${CAMERA_URLS[$i]}"
+
+    if [[ "$LEGACY_LAYOUT" == "true" ]]; then
+        output_dir="$RECORD_DIR/$TODAY"
+    else
+        output_dir="$RECORD_DIR/$camera_name/$TODAY"
+    fi
+    output_file="$output_dir/$TIMESTAMP.mp4"
+
+    (
+        record_single_camera "$camera_name" "$camera_url" "$output_dir" "$output_file"
+    ) &
+
+    PIDS+=("$!")
+    PID_CAMERA_NAMES+=("$camera_name")
+    PID_OUTPUT_FILES+=("$output_file")
+done
+
+overall_exit=0
+for i in "${!PIDS[@]}"; do
+    pid="${PIDS[$i]}"
+    camera_name="${PID_CAMERA_NAMES[$i]}"
+    output_file="${PID_OUTPUT_FILES[$i]}"
+
+    if wait "$pid"; then
+        file_size=$(du -h "$output_file" 2>/dev/null | cut -f1)
+        log "Recording completed [$camera_name]: $output_file (${file_size:-unknown})"
+    else
+        exit_code=$?
+        log "ERROR: ffmpeg exited with code $exit_code for camera [$camera_name]" >&2
+        overall_exit=1
+    fi
+done
+
+exit "$overall_exit"

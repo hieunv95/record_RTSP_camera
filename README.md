@@ -6,6 +6,7 @@ Optimized for **Armbian Bookworm / Debian 12** on ARM64 boards with limited reso
 ## Features
 
 - Hourly RTSP recording with ffmpeg (copy mode, no re-encoding)
+- Single-camera and multi-camera support
 - Automatic cloud sync every 2 hours via rclone
 - Disk space monitoring with auto-cleanup
 - Docker support with memory limits for low-power ARM devices
@@ -121,7 +122,8 @@ du -sh /opt/record/camera/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RTSP_URL` | *(required)* | Full RTSP URL: `rtsp://user:pass@host:port/path` |
+| `RTSP_URL` | *(optional)* | Single-camera RTSP URL: `rtsp://user:pass@host:port/path` |
+| `CAMERAS` | *(optional)* | Multi-camera list: `front=rtsp://...;back=rtsp://...` (takes precedence over `RTSP_URL`) |
 | `RECORD_DIR` | `/data/camera` | Recording storage directory |
 | `RECORD_DURATION` | `3580` | Seconds per recording segment (~1h) |
 | `RCLONE_REMOTE` | `cam` | Rclone remote name |
@@ -130,6 +132,31 @@ du -sh /opt/record/camera/
 | `DELETE_AFTER_SYNC` | `true` | Delete local files after successful sync |
 | `DISK_USAGE_THRESHOLD` | `80` | Force cleanup at N% disk usage (0=disable) |
 | `TZ` | `Asia/Ho_Chi_Minh` | Timezone |
+
+Set either `RTSP_URL` (single camera) or `CAMERAS` (multiple cameras).
+
+### Multi-camera folder layout
+
+- Single-camera (`RTSP_URL`): `RECORD_DIR/DD-MM-YYYY/*.mp4` (legacy layout)
+- Multi-camera (`CAMERAS`): `RECORD_DIR/<camera-name>/DD-MM-YYYY/*.mp4`
+
+Cloud sync preserves the same relative structure under `RCLONE_PATH`.
+
+### Migrate legacy single-camera folders
+
+If you switch from `RTSP_URL` to `CAMERAS`, migrate old folders once:
+
+```bash
+# Dry run (recommended first)
+DRY_RUN=true ./record/migrate_legacy_layout.sh front
+
+# Apply migration to camera name "front"
+./record/migrate_legacy_layout.sh front
+```
+
+- Argument is target camera name (default: `camera`)
+- Script moves `RECORD_DIR/DD-MM-YYYY/*` to `RECORD_DIR/<camera>/DD-MM-YYYY/*`
+- Existing files in destination are never overwritten
 
 ---
 

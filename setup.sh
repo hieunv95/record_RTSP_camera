@@ -60,8 +60,10 @@ mkdir -p "$DATA_DIR"
 echo "[5/6] Installing scripts..."
 cp "$SCRIPT_DIR/record/record.sh" "$INSTALL_DIR/record.sh"
 cp "$SCRIPT_DIR/record/rclone.sh" "$INSTALL_DIR/rclone.sh"
+cp "$SCRIPT_DIR/record/migrate_legacy_layout.sh" "$INSTALL_DIR/migrate_legacy_layout.sh"
 chmod 755 "$INSTALL_DIR/record.sh"
 chmod 755 "$INSTALL_DIR/rclone.sh"
+chmod 755 "$INSTALL_DIR/migrate_legacy_layout.sh"
 
 # Copy .env if it exists and not already installed
 if [[ -f "$SCRIPT_DIR/.env" && ! -f "$INSTALL_DIR/.env" ]]; then
@@ -102,5 +104,6 @@ echo "  2. Setup rclone remote:  rclone config"
 echo "     (Create a remote named 'cam' or update RCLONE_REMOTE in .env)"
 echo "  3. Test recording:       ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh"
 echo "  4. Test sync:            ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh"
-echo "  5. Check logs:           tail -f /var/log/record-camera.log"
+echo "  5. Migrate old layout:   ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/migrate_legacy_layout.sh"
+echo "  6. Check logs:           tail -f /var/log/record-camera.log"
 echo ""

@@ -33,6 +33,7 @@ RUN mkdir -p /app /data/camera /config
 # Copy scripts
 COPY record/record.sh /app/record.sh
 COPY record/rclone.sh /app/rclone.sh
+COPY record/migrate_legacy_layout.sh /app/migrate_legacy_layout.sh
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod 755 /app/*.sh
 

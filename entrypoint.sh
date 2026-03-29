@@ -17,10 +17,22 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 # Validate required config
-if [[ -z "${RTSP_URL:-}" ]]; then
-    echo "ERROR: RTSP_URL is not set." >&2
-    echo "Set it via docker-compose.yml environment, .env file, or -e flag." >&2
+if [[ -z "${RTSP_URL:-}" && -z "${CAMERAS:-}" ]]; then
+    echo "ERROR: RTSP_URL or CAMERAS must be set." >&2
+    echo "Set one via docker-compose.yml environment, .env file, or -e flag." >&2
     exit 1
+fi
+
+if [[ -n "${CAMERAS:-}" ]]; then
+    IFS=';' read -r -a camera_entries <<< "${CAMERAS}"
+    camera_count=0
+    for entry in "${camera_entries[@]}"; do
+        [[ -n "${entry//[[:space:]]/}" ]] || continue
+        ((camera_count+=1))
+    done
+    echo "Cameras configured: ${camera_count} (multi-camera mode)"
+else
+    echo "Cameras configured: 1 (single-camera mode)"
 fi
 
 # Check rclone config
