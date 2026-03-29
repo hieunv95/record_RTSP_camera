@@ -176,7 +176,7 @@ With immediate sync after each recording, local storage is reduced as soon as up
 
 ```bash
 # Test RTSP stream manually
-ffmpeg -i "rtsp://user:pass@host:port/path" -t 10 -y test.mkv
+ffmpeg -rtsp_transport tcp -use_wallclock_as_timestamps 1 -fflags +genpts -i "rtsp://user:pass@host:port/path" -t 10 -c copy -y test.mkv
 
 # Test rclone sync
 rclone ls cam:camera/

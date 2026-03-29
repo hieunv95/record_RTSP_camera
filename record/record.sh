@@ -88,6 +88,8 @@ record_single_camera() {
     # -timeout: kill ffmpeg if it exceeds RECORD_DURATION + 5s grace
     # -nostdin/-hide_banner: reduce interactive/noisy behavior in cron
     # -rtsp_transport tcp: stable RTSP transport
+    # -use_wallclock_as_timestamps 1: derive packet timestamps from wall clock when source misses PTS/DTS
+    # -fflags +genpts: generate missing PTS to keep muxers (matroska) happy in copy mode
     # -vcodec copy: no video re-encoding (critical for low-power ARM)
     # -acodec copy: no audio re-encoding
     # -t: duration in seconds
@@ -96,6 +98,8 @@ record_single_camera() {
         -nostdin \
         -hide_banner \
         -rtsp_transport tcp \
+        -use_wallclock_as_timestamps 1 \
+        -fflags +genpts \
         -i "$camera_url" \
         -vcodec copy \
         -acodec copy \
