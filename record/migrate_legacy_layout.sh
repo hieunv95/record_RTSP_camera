@@ -3,11 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/../.env}"
+source "$SCRIPT_DIR/env_loader.sh"
 
 if [[ -f "$ENV_FILE" ]]; then
-    set -a
-    source "$ENV_FILE"
-    set +a
+    load_env_file "$ENV_FILE"
 fi
 
 RECORD_DIR="${RECORD_DIR:-/data/camera}"

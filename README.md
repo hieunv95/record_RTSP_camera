@@ -135,6 +135,8 @@ du -sh /opt/record/camera/
 
 Set either `RTSP_URL` (single camera) or `CAMERAS` (multiple cameras).
 
+`CAMERAS` now supports raw/unquoted RTSP query strings (including `&` and `;`) with the built-in dotenv parser, but quoting the full value is still recommended for readability.
+
 ### Multi-camera folder layout
 
 - Single-camera (`RTSP_URL`): `RECORD_DIR/DD-MM-YYYY/*.mp4` (legacy layout)

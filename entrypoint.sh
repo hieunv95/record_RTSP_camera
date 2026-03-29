@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env_loader.sh"
+
 echo "=== RTSP Camera Recorder Container ==="
 echo "Timezone: ${TZ:-Asia/Ho_Chi_Minh}"
 echo "Record dir: ${RECORD_DIR:-/data/camera}"
@@ -9,11 +12,10 @@ echo ""
 
 # Load .env if exists (Docker env vars take precedence)
 ENV_FILE="${ENV_FILE:-/config/.env}"
+
 if [[ -f "$ENV_FILE" ]]; then
     echo "Loading config from: $ENV_FILE"
-    set -a
-    source "$ENV_FILE"
-    set +a
+    load_env_file "$ENV_FILE"
 fi
 
 # Validate required config

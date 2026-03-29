@@ -58,9 +58,11 @@ mkdir -p "$DATA_DIR"
 
 # --- Copy scripts ---
 echo "[5/6] Installing scripts..."
+cp "$SCRIPT_DIR/record/env_loader.sh" "$INSTALL_DIR/env_loader.sh"
 cp "$SCRIPT_DIR/record/record.sh" "$INSTALL_DIR/record.sh"
 cp "$SCRIPT_DIR/record/rclone.sh" "$INSTALL_DIR/rclone.sh"
 cp "$SCRIPT_DIR/record/migrate_legacy_layout.sh" "$INSTALL_DIR/migrate_legacy_layout.sh"
+chmod 755 "$INSTALL_DIR/env_loader.sh"
 chmod 755 "$INSTALL_DIR/record.sh"
 chmod 755 "$INSTALL_DIR/rclone.sh"
 chmod 755 "$INSTALL_DIR/migrate_legacy_layout.sh"
