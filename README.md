@@ -143,22 +143,6 @@ Use `CAMERAS` for one or more cameras.
 
 Cloud sync preserves the same relative structure under `RCLONE_PATH`.
 
-### Migrate legacy single-camera folders
-
-If old folders still exist as `RECORD_DIR/DD-MM-YYYY/*`, migrate them once to the new date format layout:
-
-```bash
-# Dry run (recommended first)
-DRY_RUN=true ./record/migrate_legacy_layout.sh front
-
-# Apply migration to camera name "front"
-./record/migrate_legacy_layout.sh front
-```
-
-- Argument is required target camera name
-- Script moves `RECORD_DIR/DD-MM-YYYY/*` to `RECORD_DIR/<camera>/YYMMDD/*`
-- Existing files in destination are never overwritten
-
 ---
 
 ## Storage Estimates
@@ -185,6 +169,6 @@ rclone ls cam:camera/
 # Check container health
 docker compose logs --tail=50
 
-# Force manual sync
-docker compose exec recorder /app/rclone.sh
+# Force manual record+sync cycle
+docker compose exec recorder /app/record.sh
 ```

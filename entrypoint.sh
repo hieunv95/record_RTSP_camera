@@ -49,8 +49,8 @@ mkdir -p "${RECORD_DIR:-/data/camera}"
 CRONTAB_FILE="/tmp/crontab"
 
 cat > "$CRONTAB_FILE" <<EOF
-# Record every 5 minutes and sync immediately after recording
-*/5 * * * * ENV_FILE=$ENV_FILE RCLONE_CONF=$RCLONE_CONF /app/record.sh && ENV_FILE=$ENV_FILE RCLONE_CONF=$RCLONE_CONF /app/rclone.sh >> /proc/1/fd/1 2>&1
+# Record every 5 minutes (record.sh performs upload and local cleanup)
+*/5 * * * * ENV_FILE=$ENV_FILE RCLONE_CONF=$RCLONE_CONF /app/record.sh >> /proc/1/fd/1 2>&1
 EOF
 
 echo ""

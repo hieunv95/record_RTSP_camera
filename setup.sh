@@ -60,12 +60,8 @@ mkdir -p "$DATA_DIR"
 echo "[5/6] Installing scripts..."
 cp "$SCRIPT_DIR/record/env_loader.sh" "$INSTALL_DIR/env_loader.sh"
 cp "$SCRIPT_DIR/record/record.sh" "$INSTALL_DIR/record.sh"
-cp "$SCRIPT_DIR/record/rclone.sh" "$INSTALL_DIR/rclone.sh"
-cp "$SCRIPT_DIR/record/migrate_legacy_layout.sh" "$INSTALL_DIR/migrate_legacy_layout.sh"
 chmod 755 "$INSTALL_DIR/env_loader.sh"
 chmod 755 "$INSTALL_DIR/record.sh"
-chmod 755 "$INSTALL_DIR/rclone.sh"
-chmod 755 "$INSTALL_DIR/migrate_legacy_layout.sh"
 
 # Copy .env if it exists and not already installed
 if [[ -f "$SCRIPT_DIR/.env" && ! -f "$INSTALL_DIR/.env" ]]; then
@@ -85,8 +81,8 @@ cat > "$CRON_FILE" <<EOF
 SHELL=/bin/bash
 ENV_FILE=$INSTALL_DIR/.env
 
-# Record every 5 minutes and sync immediately after each recording
-*/5 * * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh >> /var/log/record-camera.log 2>&1 && ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh >> /var/log/record-camera-sync.log 2>&1
+# Record every 5 minutes (record.sh performs upload and local cleanup)
+*/5 * * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh >> /var/log/record-camera.log 2>&1
 EOF
 chmod 644 "$CRON_FILE"
 
@@ -101,8 +97,6 @@ echo "Next steps:"
 echo "  1. Configure your .env:  sudo nano $INSTALL_DIR/.env"
 echo "  2. Setup rclone remote:  rclone config"
 echo "     (Create a remote named 'cam' or update RCLONE_REMOTE in .env)"
-echo "  3. Test recording:       ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh"
-echo "  4. Test sync:            ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/rclone.sh"
-echo "  5. Migrate old layout:   ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/migrate_legacy_layout.sh <camera-name>"
-echo "  6. Check logs:           tail -f /var/log/record-camera.log"
+echo "  3. Test recording+sync:  ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh"
+echo "  4. Check logs:           tail -f /var/log/record-camera.log"
 echo ""

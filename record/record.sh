@@ -15,6 +15,17 @@ RECORD_DIR="${RECORD_DIR:-/data/camera}"
 RECORD_DURATION="${RECORD_DURATION:-310}"
 RECORD_TIMEOUT_GRACE="${RECORD_TIMEOUT_GRACE:-20}"
 CAMERAS="${CAMERAS:-}"
+RCLONE_REMOTE="${RCLONE_REMOTE:-cam}"
+RCLONE_PATH="${RCLONE_PATH:-camera}"
+RCLONE_CONF="${RCLONE_CONF:-}"
+DELETE_AFTER_SYNC="${DELETE_AFTER_SYNC:-true}"
+
+RCLONE_FLAGS=(--check-first --transfers 1 --checkers 2 --buffer-size 0 --low-level-retries 3 --retries 3)
+
+RCLONE_BASE_CMD=(rclone)
+if [[ -n "$RCLONE_CONF" && -f "$RCLONE_CONF" ]]; then
+    RCLONE_BASE_CMD+=(--config "$RCLONE_CONF")
+fi
 
 # Date variables
 TODAY=$(date +%y%m%d)
@@ -121,6 +132,37 @@ record_single_camera() {
         -y "$output_file"
 }
 
+sync_recording_file() {
+    local camera_name="$1"
+    local output_file="$2"
+    local rel_path
+    local remote_file
+
+    if [[ ! -s "$output_file" ]]; then
+        log "ERROR: Cannot sync missing/empty file for [$camera_name]: $output_file" >&2
+        return 1
+    fi
+
+    rel_path="${output_file#$RECORD_DIR/}"
+    if [[ "$rel_path" == "$output_file" ]]; then
+        rel_path="$(basename "$output_file")"
+    fi
+    remote_file="${RCLONE_REMOTE}:${RCLONE_PATH}/$rel_path"
+
+    log "Uploading [$camera_name]: $rel_path -> $remote_file"
+    if "${RCLONE_BASE_CMD[@]}" copyto "$output_file" "$remote_file" "${RCLONE_FLAGS[@]}"; then
+        log "Upload completed [$camera_name]: $rel_path"
+        if [[ "$DELETE_AFTER_SYNC" == "true" ]]; then
+            rm -f "$output_file"
+            log "Deleted local file after sync [$camera_name]: $rel_path"
+        fi
+        return 0
+    fi
+
+    log "ERROR: Upload failed [$camera_name]: $rel_path" >&2
+    return 1
+}
+
 declare -a PIDS=()
 declare -a PID_CAMERA_NAMES=()
 declare -a PID_OUTPUT_FILES=()
@@ -150,6 +192,9 @@ for i in "${!PIDS[@]}"; do
     if wait "$pid"; then
         file_size=$(du -h "$output_file" 2>/dev/null | cut -f1)
         log "Recording completed [$camera_name]: $output_file (${file_size:-unknown})"
+        if ! sync_recording_file "$camera_name" "$output_file"; then
+            overall_exit=1
+        fi
     else
         exit_code=$?
         if [[ "$exit_code" -eq 124 ]]; then
@@ -157,6 +202,9 @@ for i in "${!PIDS[@]}"; do
                 file_size=$(du -h "$output_file" 2>/dev/null | cut -f1)
                 log "Recording reached timeout for [$camera_name] but output exists: $output_file (${file_size:-unknown})"
                 log "Hint: increase RECORD_TIMEOUT_GRACE if this happens frequently (current=$RECORD_TIMEOUT_GRACE)"
+                if ! sync_recording_file "$camera_name" "$output_file"; then
+                    overall_exit=1
+                fi
             else
                 log "ERROR: ffmpeg timed out (124) and produced no output for camera [$camera_name]" >&2
                 overall_exit=1

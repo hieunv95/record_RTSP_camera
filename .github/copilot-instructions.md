@@ -5,8 +5,7 @@ Records RTSP camera streams every 5 minutes via ffmpeg, syncs to cloud (Google D
 
 ## Architecture
 ```
-Cron */5 → record/record.sh (ffmpeg copy-mode → <camera>/YYMMDD/YYMMDD-HHMMSS.mkv)
-Immediately after each record run → record/rclone.sh (sync date dirs → cloud, delete on success, disk cleanup)
+Cron */5 → record/record.sh (ffmpeg copy-mode → <camera>/YYMMDD/YYMMDD-HHMMSS.mkv → rclone copyto cloud → delete on success)
 ```
 - **Docker**: `entrypoint.sh` generates crontab from env vars → runs `supercronic` as PID 1
 - **Bare-metal**: `setup.sh` installs via apt-get, creates `/etc/cron.d/record-camera`
@@ -24,13 +23,11 @@ Key vars: `CAMERAS` (required), `RECORD_DIR`, `RECORD_DURATION`, `RCLONE_REMOTE`
 - **ffmpeg**: Always `-rtsp_transport tcp` for stream stability
 - **rclone**: Always `--transfers 1 --checkers 2 --buffer-size 0` to limit memory
 - **Docker**: `mem_limit: 512m`, `memswap_limit: 768m`
-- **Disk**: `check_disk_usage()` in rclone.sh auto-deletes oldest dir when above threshold
 
 ## Script Conventions
 - All scripts: `set -euo pipefail`, structured `[timestamp] message` logging
-- `record.sh`: Fails fast if `CAMERAS` unset and writes to canonical `<camera>/YYMMDD` layout
-- `rclone.sh`: Iterates date dirs and deletes only after confirmed sync success (`$? -eq 0`)
-- rclone.sh `RCLONE_CONF` flag: auto-appends `--config $RCLONE_CONF` if file exists (Docker mounts to `/config/rclone.conf`)
+- `record.sh`: Fails fast if `CAMERAS` unset, writes canonical `<camera>/YYMMDD` layout, uploads each segment via `rclone copyto`, and deletes local file on confirmed sync success
+- `record.sh` `RCLONE_CONF` flag: auto-appends `--config $RCLONE_CONF` if file exists (Docker mounts to `/config/rclone.conf`)
 
 ## File Paths
 | Context | Scripts | Recordings | Config |
@@ -41,7 +38,7 @@ Key vars: `CAMERAS` (required), `RECORD_DIR`, `RECORD_DURATION`, `RCLONE_REMOTE`
 ## Testing
 ```bash
 docker compose logs -f                           # live logs
-docker compose exec recorder /app/rclone.sh      # manual sync
+docker compose exec recorder /app/record.sh      # manual record+sync cycle
 docker stats rtsp-recorder                        # memory check
 ffmpeg -rtsp_transport tcp -i "<RTSP_URL>" -t 10 -y test.mkv  # test stream
 du -sh data/camera/*/                             # disk usage
@@ -51,8 +48,7 @@ du -sh data/camera/*/                             # disk usage
 | File | Purpose |
 |------|---------|
 | `.env.example` | Config template with all variables and defaults |
-| `record/record.sh` | Hourly ffmpeg RTSP capture (copy mode, no transcoding) |
-| `record/rclone.sh` | Cloud sync + conditional delete + disk usage cleanup |
+| `record/record.sh` | ffmpeg RTSP capture (copy mode, no transcoding) + immediate per-file cloud sync + conditional local delete |
 | `setup.sh` | Bare-metal Debian 12 installer (apt-get, /etc/cron.d/) |
 | `Dockerfile` | `debian:bookworm-slim` + ffmpeg + rclone + supercronic (multi-arch) |
 | `docker-compose.yml` | Volumes, memory limits, log rotation, restart policy |
