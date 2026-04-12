@@ -33,6 +33,7 @@ RUN mkdir -p /app /data/camera /config
 # Copy scripts
 COPY record/env_loader.sh /app/env_loader.sh
 COPY record/record.sh /app/record.sh
+COPY record/cleanup_old_folders.sh /app/cleanup_old_folders.sh
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod 755 /app/*.sh
 

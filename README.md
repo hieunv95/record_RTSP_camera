@@ -100,7 +100,7 @@ sudo bash setup.sh
 This will:
 - Install ffmpeg, rclone via apt
 - Copy scripts to `/opt/record/`
-- Setup cron jobs (record every 5 minutes, sync immediately after each recording)
+- Setup cron jobs (record every 5 minutes, sync immediately after each recording, remove folders older than today at 00:00)
 
 ### 4. Monitor
 

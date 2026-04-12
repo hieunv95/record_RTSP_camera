@@ -60,8 +60,10 @@ mkdir -p "$DATA_DIR"
 echo "[5/6] Installing scripts..."
 cp "$SCRIPT_DIR/record/env_loader.sh" "$INSTALL_DIR/env_loader.sh"
 cp "$SCRIPT_DIR/record/record.sh" "$INSTALL_DIR/record.sh"
+cp "$SCRIPT_DIR/record/cleanup_old_folders.sh" "$INSTALL_DIR/cleanup_old_folders.sh"
 chmod 755 "$INSTALL_DIR/env_loader.sh"
 chmod 755 "$INSTALL_DIR/record.sh"
+chmod 755 "$INSTALL_DIR/cleanup_old_folders.sh"
 
 # Copy .env if it exists and not already installed
 if [[ -f "$SCRIPT_DIR/.env" && ! -f "$INSTALL_DIR/.env" ]]; then
@@ -83,6 +85,9 @@ ENV_FILE=$INSTALL_DIR/.env
 
 # Record every 5 minutes (record.sh performs upload and local cleanup)
 */5 * * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh >> /var/log/record-camera.log 2>&1
+
+# Remove date folders older than today at 00:00 daily
+0 0 * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/cleanup_old_folders.sh >> /var/log/record-camera.log 2>&1
 EOF
 chmod 644 "$CRON_FILE"
 

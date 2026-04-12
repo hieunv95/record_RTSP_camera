@@ -51,6 +51,9 @@ CRONTAB_FILE="/tmp/crontab"
 cat > "$CRONTAB_FILE" <<EOF
 # Record every 5 minutes (record.sh performs upload and local cleanup)
 */5 * * * * ENV_FILE=$ENV_FILE RCLONE_CONF=$RCLONE_CONF /app/record.sh >> /proc/1/fd/1 2>&1
+
+# Remove date folders older than today at 00:00 daily
+0 0 * * * ENV_FILE=$ENV_FILE /app/cleanup_old_folders.sh >> /proc/1/fd/1 2>&1
 EOF
 
 echo ""
