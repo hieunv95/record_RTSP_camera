@@ -86,7 +86,7 @@ ENV_FILE=$INSTALL_DIR/.env
 # Record every 5 minutes (record.sh performs upload and local cleanup)
 */5 * * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/record.sh >> /var/log/record-camera.log 2>&1
 
-# Remove date folders older than today at 00:00 daily
+# Remove date folders older than yesterday at 00:00 daily
 0 0 * * * root ENV_FILE=$INSTALL_DIR/.env $INSTALL_DIR/cleanup_old_folders.sh >> /var/log/record-camera.log 2>&1
 EOF
 chmod 644 "$CRON_FILE"

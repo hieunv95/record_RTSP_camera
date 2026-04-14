@@ -10,7 +10,7 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 RECORD_DIR="${RECORD_DIR:-/data/camera}"
-TODAY="$(date +%y%m%d)"
+YESTERDAY="$(date -d 'yesterday' +%y%m%d)"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -21,12 +21,12 @@ if [[ ! -d "$RECORD_DIR" ]]; then
     exit 0
 fi
 
-log "Daily cleanup started (keep >= $TODAY) in: $RECORD_DIR"
+log "Daily cleanup started (keep >= $YESTERDAY) in: $RECORD_DIR"
 
 while IFS= read -r -d '' camera_dir; do
     while IFS= read -r -d '' date_dir; do
         date_name="$(basename "$date_dir")"
-        if [[ "$date_name" < "$TODAY" ]]; then
+        if [[ "$date_name" < "$YESTERDAY" ]]; then
             rm -rf "$date_dir"
             log "Removed old folder: $date_dir"
         fi
